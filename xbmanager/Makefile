@@ -15,10 +15,10 @@ $(ODIR)/%.o: %.cc %.h
 libxbmanager: $(OBJ)
 	$(CC) -shared -o $@.so $^ $(CFLAGS) $(LIBS) -lm
 
-test: $(ODIR)/test.o
-	$(CC) -o test $^ $(CFLAGS) $(LIBS) -lxbmanager
+xbm: $(ODIR)/xbm.o
+	$(CC) -o xbm $^ $(CFLAGS) $(LIBS) -lxbmanager
 
 .PHONY: clean
 
 clean:
-	rm -f $(ODIR)/*.o *~ core libxbmanager.so test
+	rm -f $(ODIR)/*.o *~ core libxbmanager.so xbm
