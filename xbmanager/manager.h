@@ -5,31 +5,32 @@
 #ifndef _MANAGER_H_
 #define _MANAGER_H_
 
-#include "serial.h"
+#include "../xbserial/serial.h"
 
-#include <string.h>
+#include <pthread.h>
 
 namespace XB {
 
-  typedef int (*ManagerCallback)(ResponseFrame* frame);
-
-  struct Module {
-    Address16 address16;
-    Address64 address64;
-    
-    Module(Address16* address16, Address64* address64) {
-      memcpy(&this->address16, address16, sizeof(this->address16));
-      memcpy(&this->address64, address64, sizeof(this->address64));
-    }
-  };
+  typedef int (*MonitorCallback)(ResponseFrame* frame);
   
   typedef int (*DiscoverCallback)(Module*);
-  
+
   class Manager {
   public:
-    Manager(ManagerCallback callback);
+    Manager();
     ~Manager();
+    int monitor(MonitorCallback callback);
     int discover(DiscoverCallback callback);
+  private:
+    static void* monitor_(void* context);
+    void* monitor();
+
+  private:
+    Serial serial_;
+    pthread_t monitorThread_;
+    pthread_mutex_t monitorMutex_;
+    MonitorCallback monitorCallback_;
+    DiscoverCallback discoverCallback_;
   };
   
 }
