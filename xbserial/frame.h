@@ -6,25 +6,11 @@
 #define _FRAME_H_
 
 #include <string>
-#include <stddef.h>
 #include <string.h>
+#include <stdio.h>
+#include <arpa/inet.h>
 
 #include "file.h"
-
-#define XBCOMMAND(c)  (((unsigned short)c[0] & (unsigned short)0xFF) | (((unsigned short)c[1] << 8) & (unsigned short)0xFF00))
-#define XBCOMMANDSTR(c)  (std::string() + (char)c + (char)(c >> 8))
-
-#define XBPARAMETER(p)  (((unsigned short)p[0] & (unsigned short)0xFF) | (((unsigned short)p[1] << 8) & (unsigned short)0xFF00))
-#define XBPARAMETERSTR(p)  (std::string() + (char)p + (char)(p >> 8))
-
-#define XBADDRESS64(a,b,c,d,e,f,g,h)  (((unsigned long long)a & (unsigned long long)0xFF) | (((unsigned long long)b << 8) & (unsigned long long)0xFF00) | (((unsigned long long)c << 16) & (unsigned long long)0xFF0000) | (((unsigned long long)d << 24) & (unsigned long long)0xFF000000) | (((unsigned long long)e << 32) & (unsigned long long)0xFF00000000) | (((unsigned long long)f << 40) & (unsigned long long)0xFF0000000000) | (((unsigned long long)g << 48) & (unsigned long long)0xFF000000000000) | (((unsigned long long)h << 56) & (unsigned long long)0xFF00000000000000))
-
-#define XBADDRESS16(a,b)  (((byte)a & (unsigned long long)0xFF) | (((byte)b << 8) & (unsigned long long)0xFF00))
-
-#define XBCOORDINATOR  XBADDRESS64(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
-#define XBBROADCAST  XBADDRESS64(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF)
-#define XBUNKNOWN XBADDRESS16(0xFF, 0xFE)
-
 
 namespace XB {
 
@@ -36,14 +22,15 @@ namespace XB {
   class FrameHeader {
   public:
     FrameHeader();
-    int read(int fd);
-    int getLength();
-    int getPayloadLength();
+    int read(int fd, long timeout = 0);
+    unsigned short getLength();
+    unsigned short getPayloadLength();
     byte getType();
     byte getId();
 
   public:
     static std::string getTypeCode(byte type) {
+      static char buffer[5];
       switch (type) {
       case TYPE_COMMAND:
 	return " C ";
@@ -54,16 +41,19 @@ namespace XB {
       case TYPE_REMOTE_COMMAND_RESPONSE:
 	return "RCR";
       default:
-	return "UNK";
+	snprintf(buffer, 4, "%02X", type);
+	return buffer;
       }
     }
 
   protected:
-    int length_;
+    unsigned short length_;
     byte type_;
     byte id_;
   };
 
+  const int ERROR_CHECKSUM = -42;
+  
   class Frame {
   public:
     virtual ~Frame();
@@ -87,8 +77,8 @@ namespace XB {
     int write(int fd);
 
   protected:
-    int writeAccumulate(int fd, byte* data, int length = 1);
-    virtual int getPayloadLength() = 0;
+    int writeAccumulate(int fd, byte* data, unsigned short length = 1);
+    virtual unsigned short getPayloadLength() = 0;
     virtual int writePayload(int fd) = 0;
   };
 
@@ -100,81 +90,192 @@ namespace XB {
     virtual ~ResponseFrame();
     int read(int fd);
     int readHeader(int fd, FrameHeader* header);
-    virtual int readPayload(int fd, int length);
+    virtual int readPayload(int fd, unsigned short length);
     int readAndValidateChecksum(int fd);
+    virtual byte getStatus();
 
   protected:
-    void accumulate(byte* data, int length = 1);
-    int readAccumulate(int fd, byte* data, int length = 1);
+    void accumulate(byte* data, unsigned short length = 1);
+    int readAccumulate(int fd, byte* data, unsigned short length = 1);
   };
 
+  struct _2Byte {
+    byte a, b;
 
-  typedef unsigned short Command;
-  typedef unsigned short Parameter;
+    _2Byte() {
+      a = 0;
+      b = 0;
+    }
 
+    _2Byte(const char *command) {
+      a = (byte)command[0];
+      b = (byte)command[1];
+    }
+
+    _2Byte(byte* data) {
+      a = data[0];
+      b = data[1];
+    }
+
+    _2Byte(byte a, byte b) {
+      this->a = a;
+      this->b = b;
+    }
+
+    std::string std_string() {
+      return std::string() + (char)a + (char)b;
+    }
+  };
+
+  typedef _2Byte Command;
+  
+  struct Parameter {
+    byte* data;
+    unsigned short length;
+    unsigned short value;
+
+    Parameter() {
+      data = NULL;
+      length = 0;
+    }
+
+    Parameter(unsigned short value) {
+      this->value = htons(value);
+      data = (byte*)&this->value;
+      length = 2;
+    }
+
+    Parameter(char* parameter) {
+      data = (byte*)parameter;
+      length = strlen(parameter);
+    }
+
+    Parameter(byte* data, unsigned short length) {
+      this->data = data;
+      this->length = length;
+    }
+
+    std::string std_string() {
+      return std::string((char*)data, length);
+    }
+
+    unsigned short ushort() {
+      return ntohs((unsigned short)data[0] | ((unsigned short)data[1] << 8));
+    }
+  };
+  
   class CommandFrame : public RequestFrame {
   public:
     CommandFrame(Command command, byte id = 0);
     CommandFrame(Command command, Parameter parameter, byte id = 0);
-    CommandFrame(Command command, byte* data, int length, byte id = 0);
     virtual ~CommandFrame();
 
   protected:
     CommandFrame(byte type, Command command, byte id = 0);
     CommandFrame(byte type, Command command, Parameter parameter, byte id = 0);
-    CommandFrame(byte type, Command command, byte* data, int length, byte id = 0);
-    virtual int getPayloadLength();
+    virtual unsigned short getPayloadLength();
     virtual int writePayload(int fd);
 
   private:
     Command command_;
     Parameter parameter_;
-    byte *data_;
-    int length_;
   };
 
 
+  const byte STATUS_OK = 0;
+  const byte STATUS_ERROR = 0x01;
+  const byte STATUS_INVALID_COMMAND = 0x02;
+  const byte STATUS_INVALID_PARAMETER = 0x03;
+  const byte STATUS_TX_FAILURE = 0x04;
+  
   class CommandResponseFrame : public ResponseFrame {
   public:
     CommandResponseFrame(byte type = TYPE_COMMAND_RESPONSE);
     CommandResponseFrame(FrameHeader* header);
     virtual ~CommandResponseFrame();
     Command getCommand();
-    byte getStatus();
-    byte* getData();
-    int getLength();
-
+    virtual byte getStatus();
+    Parameter getParameter();
+    Parameter detachParameter();
+    
   protected:
-    virtual int readPayload(int fd, int length);
+    virtual int readPayload(int fd, unsigned short length);
   
   private:
     Command command_;
     byte status_;
-    byte* data_;
-    int length_;
+    Parameter parameter_;
   };
 
 
-  typedef unsigned long long Address64;
-  typedef unsigned short Address16;
+  struct _8Byte {
+    byte a, b, c, d, e, f, g, h;
+
+    _8Byte() {
+      a = 0;
+      b = 0;
+      c = 0;
+      d = 0;
+      e = 0;
+      f = 0;
+      g = 0;
+      h = 0;
+    }
+    
+    _8Byte(byte a, byte b, byte c, byte d, byte e, byte f, byte g, byte h) {
+      this->a = a;
+      this->b = b;
+      this->c = c;
+      this->d = d;
+      this->e = e;
+      this->f = f;
+      this->g = g;
+      this->h = h;
+    }
+
+     _8Byte(byte* data) {
+      a = data[0];
+      b = data[1];
+      c = data[2];
+      d = data[3];
+      e = data[4];
+      f = data[5];
+      g = data[6];
+      h = data[7];
+    }
+  };
+
+  typedef _8Byte Address64;
+  typedef _2Byte Address16;
+
+  const Address64 COORDINATOR(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00);
+  const Address64 BROADCAST(0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF);
+
+  const Address16 UNKNOWN(0xFF, 0xFE);
   
   struct Module {
     Address64 address64;
     Address16 address16;
+    std::string identifier;
+
+    Module() {
+    }
     
-    Module(Address64 address64, Address16 address16) {
+    Module(Address64 address64, Address16 address16, std::string identifier) {
       this->address64 = address64;
       this->address16 = address16;
+      this->identifier = identifier;
     }
   };
 
-  const byte OPTION_APPLY = ((byte)0x02);
+  const byte OPTION_DISABLE_ACK = 0x01;
+  const byte OPTION_APPLY = 0x02;
+  const byte OPTION_EXTENDED_TX_TIMEOUT = 0x04;
 
   class RemoteCommandFrame : public CommandFrame {
   public:
     RemoteCommandFrame(Address64 address64, Address16 address16, byte options, Command command, byte id = 0);
     RemoteCommandFrame(Address64 address64, Address16 address16, byte options, Command command, Parameter parameter, byte id = 0);
-    RemoteCommandFrame(Address64 address64, Address16 address16, byte options, Command command, byte* data, int length, byte id = 0);
     virtual ~RemoteCommandFrame();
 
   public:
@@ -186,7 +287,7 @@ namespace XB {
     static RemoteCommandFrame* toModule(Module* module, Command command, Parameter parameter, byte id = 0, byte options = OPTION_APPLY);
 
   protected:
-    int getPayloadLength();
+    unsigned short getPayloadLength();
     int writePayload(int fd);
 
   private:
@@ -205,15 +306,15 @@ namespace XB {
     Address16 getAddress16();
 
   protected:
-    virtual int readPayload(int fd, int length);
+    virtual int readPayload(int fd, unsigned short length);
     
   private:
     Address64 address64_;
     Address16 address16_;
   };
 
-  int _logData(unsigned char* data, int length = 1);
-  int logData(unsigned char* data, int length = 1);
+  int _logData(unsigned char* data, unsigned short length = 1);
+  int logData(unsigned char* data, unsigned short length = 1);
 }
 
 #endif // _FRAME_H_

@@ -71,6 +71,10 @@ namespace XB {
     return frame->write(fd_);
   }
 
+  int Serial::send(const RequestFrame& frame) {
+    return send((RequestFrame*)&frame);
+  }
+
   int Serial::receive(ResponseFrame* frame) {
     if (fd_ < 0) {
       return ERROR_NOPEN;
@@ -89,18 +93,16 @@ namespace XB {
       return result;
     }
 
-    result = frame->readAndValidateChecksum(fd_);
-
-    return result;
+    return frame->readAndValidateChecksum(fd_);
   }
 
   byte Serial::getNextId() {
     return ++idSequence_;
   }
 
-  ResponseFrame* Serial::receiveAny(byte id) {
+  ResponseFrame* Serial::receiveAny(byte id, long timeout) {
     FrameHeader header;
-    while (header.read(fd_) >= 0) {
+    while (header.read(fd_, timeout) >= 0) {
       byte type = header.getType();
       ResponseFrame *frame;
       switch (type) {
@@ -116,13 +118,16 @@ namespace XB {
       }
 
       int result = receive(&header, frame);
-      if (result != 0) {
+      if ((result != 0) && (id == 0)) {
+	delete frame;
 	return NULL;
       }
 
-      if ((id == (byte)0x00) || (id == header.getId())) {
-	  return frame;
+      if ((id == 0) || (id == header.getId())) {
+        return frame;
       }
+
+      delete frame;
     }
 
     return NULL;
@@ -141,12 +146,16 @@ namespace XB {
     return receiveAny(frame->getId());
   }
 
+  ResponseFrame* Serial::sendForResponse(const RequestFrame& frame) {
+    return sendForResponse((RequestFrame*)&frame);
+  }
+
   int Serial::sendCommand(Command command) {
-    return send(new CommandFrame(command, getNextId()));
+    return send(CommandFrame(command, 0));
   }
   
   int Serial::sendRemoteCommand(Address64 address64, Address16 address16, Command command) {
-    return send(new RemoteCommandFrame(address64, address16, 0, command, (byte)0));
+    return send(RemoteCommandFrame(address64, address16, 0, command, 0));
   }
   
   int Serial::sendRemoteCommand(Module* module, Command command) {
@@ -154,12 +163,12 @@ namespace XB {
   }
 
   CommandResponseFrame* Serial::sendCommandForResponse(Command command) {
-    ResponseFrame* response = sendForResponse(new CommandFrame(command, getNextId()));
+    ResponseFrame* response = sendForResponse(CommandFrame(command, getNextId()));
     return dynamic_cast<CommandResponseFrame*>(response);
   }
 
   RemoteCommandResponseFrame* Serial::sendRemoteCommandForResponse(Address64 address64, Address16 address16, Command command) {
-    ResponseFrame* response = sendForResponse(new RemoteCommandFrame(address64, address16, 0, command, getNextId()));
+    ResponseFrame* response = sendForResponse(RemoteCommandFrame(address64, address16, 0, command, getNextId()));
     return dynamic_cast<RemoteCommandResponseFrame*>(response);
   }
 
@@ -170,35 +179,27 @@ namespace XB {
   int Serial::getParameter(Command command, Parameter* parameter) {
     CommandResponseFrame* commandResponse = sendCommandForResponse(command);
     if (commandResponse == NULL) {
-      return logError(-1, "No Response for %s", XBCOMMANDSTR(command).c_str());
-    }
-
-    int length = commandResponse->getLength();
-    if (length < 2) {
-      return -1;
+      return logError(-1, "No Response for %s", command.std_string().c_str());
     }
     
-    byte* data = commandResponse->getData();
-    *parameter = XBPARAMETER(data);
+    *parameter = commandResponse->detachParameter();
+    byte status = commandResponse->getStatus();
 
-    return 0;
+    delete commandResponse;
+    return status;
   }
   
   int Serial::getRemoteParameter(Address64 address64, Address16 address16, Command command, Parameter *parameter) {
     RemoteCommandResponseFrame* remoteCommandResponse = sendRemoteCommandForResponse(address64, address16, command);
     if (remoteCommandResponse == NULL) {
-      return logError(-1, "No Response for %s", XBCOMMANDSTR(command).c_str());
+      return logError(-1, "No Response for %s", command.std_string().c_str());
     }
 
-    int length = remoteCommandResponse->getLength();
-    if (length < 2) {
-      return -1;
-    }
-    
-    byte* data = remoteCommandResponse->getData();
-    *parameter = XBPARAMETER(data);
+    *parameter = remoteCommandResponse->detachParameter();
+    byte status = remoteCommandResponse->getStatus();
 
-    return 0;
+    delete remoteCommandResponse;
+    return status;
   }
 
   int Serial::getRemoteParameter(Module* module, Command command, Parameter* parameter) {
@@ -206,23 +207,35 @@ namespace XB {
   }
   
   int Serial::setParameter(Command command, Parameter parameter) {
-    ResponseFrame* response = sendForResponse(new CommandFrame(command, parameter, getNextId()));
+    ResponseFrame* response = sendForResponse(CommandFrame(command, parameter, getNextId()));
     CommandResponseFrame* commandResponse = dynamic_cast<CommandResponseFrame*>(response);
     if (commandResponse == NULL) {
-      return logError(-1, "No Response for %s", XBCOMMANDSTR(command).c_str());
+      if (response != NULL) {
+	delete response;
+      }
+      return logError(-1, "No Response for %s", command.std_string().c_str());
     }
 
-    return 0;
+    byte status = commandResponse->getStatus();
+
+    delete commandResponse;
+    return status;
   }
   
   int Serial::setRemoteParameter(Address64 address64, Address16 address16, Command command, Parameter parameter, byte options) {
-    ResponseFrame* response = sendForResponse(new RemoteCommandFrame(address64, address16, options, command, parameter, getNextId()));
+    ResponseFrame* response = sendForResponse(RemoteCommandFrame(address64, address16, options, command, parameter, getNextId()));
     RemoteCommandResponseFrame* remoteCommandResponse = dynamic_cast<RemoteCommandResponseFrame*>(response);
     if (remoteCommandResponse == NULL) {
-      return logError(-1, "No Response for %s", XBCOMMANDSTR(command).c_str());
+      if (response != NULL) {
+	delete response;
+      }
+      return logError(-1, "No Response for %s", command.std_string().c_str());
     }
 
-    return 0;
+    byte status = remoteCommandResponse->getStatus();
+
+    delete remoteCommandResponse;
+    return status;
   }
 
   int Serial::setRemoteParameter(Module* module, Command command, Parameter parameter, byte options) {

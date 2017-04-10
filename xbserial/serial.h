@@ -12,6 +12,9 @@ namespace XB {
   const int ERROR_IBAUD = -101;
   const int ERROR_NOPEN = -200;
 
+  const byte ANY_ID = 0;
+  const byte NO_TIMEOUT = 0;
+
   class Serial {
   public:
     Serial();
@@ -19,9 +22,11 @@ namespace XB {
     int open(const char* dev, int baud);
     int close();
     int send(RequestFrame* frame);
+    int send(const RequestFrame& frame);
     int receive(ResponseFrame* frame);
-    ResponseFrame* receiveAny(byte id = 0);
+    ResponseFrame* receiveAny(byte id = ANY_ID, long timeout = NO_TIMEOUT);
     ResponseFrame* sendForResponse(RequestFrame* frame);
+    ResponseFrame* sendForResponse(const RequestFrame& frame);
     
   public:
     int sendCommand(Command command);

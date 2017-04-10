@@ -7,16 +7,17 @@
 #include <iterator>
 #include <unistd.h>
 #include <string.h>
+#include <sys/select.h>
 
 const byte ESCAPABLES[] = {(byte)0x11, (byte)0x13, (byte)0x7D, (byte)0x7E};
 const int ESCAPABLES_COUNT = 4;
 const byte ESCAPE_BYTE = ((byte)0x7D);
 const byte ESCAPE_MASK = ((byte)0x20);
 
-int _escindex(int index, const byte* data, int length);
+int _escindex(int index, const byte* data, unsigned short length);
 int _compare(const void* a, const void* b);
 
-int fdwrite(int fd, byte *data, int length) {
+int fdwrite(int fd, byte *data, unsigned short length) {
   int index = 0;
   while (index < length) {
     int next = _escindex(index, data, length);
@@ -48,7 +49,7 @@ int fdwrite(int fd, byte *data, int length) {
   return 0;
 }
 
-int _escindex(int index, const byte *data, int length) {
+int _escindex(int index, const byte *data, unsigned short length) {
   for (; index < length; index++) {
     byte* esc = (byte*)bsearch(&(data[index]), ESCAPABLES, ESCAPABLES_COUNT, sizeof(*data), _compare);
     if (esc != NULL) {
@@ -63,7 +64,7 @@ int _compare(const void* a, const void* b) {
   return *((byte*)a) - *((byte*)b);
 }
 
-int _fdwrite(int fd, const byte *data, int length) {
+int _fdwrite(int fd, const byte *data, unsigned short length) {
   const byte *current = data;
   int remaining = length;
   int bytesWritten = 0;
@@ -78,7 +79,7 @@ int _fdwrite(int fd, const byte *data, int length) {
   return (bytesWritten < 0) ? bytesWritten : 0;
 }
 
-int fdread(int fd, byte *data, int length) {
+int fdread(int fd, byte *data, unsigned short length) {
   bool escapeLast = false;
   int index = 0;
   while (index < length) {
@@ -113,7 +114,27 @@ int fdread(int fd, byte *data, int length) {
   return 0;
 }
 
-int _fdread(int fd, const byte *data, int length) {
+int _fdread(int fd, const byte *data, unsigned short length, long timeout) {
+
+  if (timeout > 0) {
+    fd_set set;
+    FD_ZERO(&set);
+    FD_SET(fd, &set);
+
+    struct timeval tout;
+    tout.tv_sec = 0;
+    tout.tv_usec = timeout * 1000;
+
+    int result = select(fd + 1, &set, NULL, NULL, &tout);
+    if (result == -1) {
+      return result;
+    }
+    else if (result == 0) {
+      return -2;
+    }
+    // data available
+  }
+  
   const byte *current = data;
   int remaining = length;
   int bytesRead = 0;
