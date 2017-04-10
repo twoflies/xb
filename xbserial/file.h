@@ -7,9 +7,9 @@
 
 typedef unsigned char byte;
 
-int fdwrite(int fd, byte* data, int length = 1);
-int _fdwrite(int fd, const byte* data, int length = 1);
-int fdread(int fd, byte* data, int length = 1);
-int _fdread(int fd, const byte* data, int length = 1);
+int fdwrite(int fd, byte* data, unsigned short length = 1);
+int _fdwrite(int fd, const byte* data, unsigned short length = 1);
+int fdread(int fd, byte* data, unsigned short length = 1);
+int _fdread(int fd, const byte* data, unsigned short length = 1, long timeout = 0);
 
 #endif // _FILE_H_

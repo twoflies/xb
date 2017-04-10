@@ -53,6 +53,9 @@ namespace XB {
       if (err == -1) {
 	std::cout << " (" << strerror(errno) << ")";
       }
+      else {
+	std::cout << " (" << err << ")";
+      }
       std::cout << std::endl;
     }
     va_end(args);
