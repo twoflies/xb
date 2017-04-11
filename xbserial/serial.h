@@ -5,6 +5,7 @@
 #define _SERIAL_H_
 
 #include "frame.h"
+#include "command.h"
 
 namespace XB {
 
@@ -12,7 +13,6 @@ namespace XB {
   const int ERROR_IBAUD = -101;
   const int ERROR_NOPEN = -200;
 
-  const byte ANY_ID = 0;
   const byte NO_TIMEOUT = 0;
 
   class Serial {
@@ -21,12 +21,13 @@ namespace XB {
     Serial(const char* dev, int baud);
     int open(const char* dev, int baud);
     int close();
-    int send(RequestFrame* frame);
-    int send(const RequestFrame& frame);
-    int receive(ResponseFrame* frame);
-    ResponseFrame* receiveAny(byte id = ANY_ID, long timeout = NO_TIMEOUT);
-    ResponseFrame* sendForResponse(RequestFrame* frame);
-    ResponseFrame* sendForResponse(const RequestFrame& frame);
+    int send(Frame* frame);
+    int send(const Frame& frame);
+    int receive(Frame* frame);
+    Frame* receiveAny(long timeout = NO_TIMEOUT);
+    CommandResponseFrame* receiveCommandResponse(byte id, long timeout = NO_TIMEOUT);
+    CommandResponseFrame* sendCommandForResponse(CommandFrame* frame);
+    CommandResponseFrame* sendCommandForResponse(const CommandFrame& frame);
     
   public:
     int sendCommand(Command command);
@@ -43,7 +44,7 @@ namespace XB {
     int setRemoteParameter(Module* module, Command command, Parameter parameter, byte options = 0);
     
   private:
-    int receive(FrameHeader* header, ResponseFrame* frame);
+    int receiveFromHeader(FrameHeader* header, Frame* frame);
     byte getNextId();
     
   private:

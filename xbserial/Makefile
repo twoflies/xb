@@ -5,7 +5,7 @@ ODIR=obj
 
 LIBS=-lpthread
 
-_OBJ = serial.o frame.o file.o log.o
+_OBJ = serial.o command.o frame.o file.o log.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 

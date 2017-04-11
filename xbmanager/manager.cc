@@ -44,7 +44,7 @@ namespace XB {
 
     short timeRemaining = parameter.ushort() * 100;
     while (timeRemaining > 0) {
-      ResponseFrame* response = serial_.receiveAny(0, timeRemaining);
+      Frame* response = serial_.receiveAny(timeRemaining);
       CommandResponseFrame* commandResponse = dynamic_cast<CommandResponseFrame*>(response);
       if (commandResponse != NULL) {
 	byte* data = commandResponse->getParameter().data;
@@ -177,7 +177,7 @@ namespace XB {
 
     log("Monitoring...");
     do {
-      ResponseFrame* response = serial_.receiveAny();
+      Frame* response = serial_.receiveAny();
       if (response != NULL) {
 	callback(response);
 	delete response;
