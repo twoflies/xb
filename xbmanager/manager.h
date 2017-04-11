@@ -13,7 +13,7 @@
 
 namespace XB {
 
-  typedef int (*MonitorCallback)(ResponseFrame* frame);
+  typedef int (*MonitorCallback)(Frame* frame);
 
   typedef std::pair<Command, Parameter> CommandParameter;
 

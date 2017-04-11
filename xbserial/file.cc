@@ -9,6 +9,8 @@
 #include <string.h>
 #include <sys/select.h>
 
+#include "log.h"
+
 const byte ESCAPABLES[] = {(byte)0x11, (byte)0x13, (byte)0x7D, (byte)0x7E};
 const int ESCAPABLES_COUNT = 4;
 const byte ESCAPE_BYTE = ((byte)0x7D);
@@ -65,6 +67,10 @@ int _compare(const void* a, const void* b) {
 }
 
 int _fdwrite(int fd, const byte *data, unsigned short length) {
+  if (length == 0) {
+    return 0;
+  }
+  
   const byte *current = data;
   int remaining = length;
   int bytesWritten = 0;
@@ -75,6 +81,11 @@ int _fdwrite(int fd, const byte *data, unsigned short length) {
       break;
     }
   }
+
+  for (int index = 0; index < length; index++) {
+    //XB::_log("%02X ", data[index]);
+  }
+  //XB::log("(%d)", length);
 
   return (bytesWritten < 0) ? bytesWritten : 0;
 }
@@ -132,7 +143,7 @@ int _fdread(int fd, const byte *data, unsigned short length, long timeout) {
     else if (result == 0) {
       return -2;
     }
-    // data available
+    // else data available
   }
   
   const byte *current = data;

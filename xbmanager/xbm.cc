@@ -11,7 +11,7 @@
 #include "../xbserial/frame.h"
 #include "../xbserial/log.h"
 
-int monitorCallback(XB::ResponseFrame *frame) {
+int monitorCallback(XB::Frame *frame) {
   using namespace XB;
 
   return 0;
