@@ -5,7 +5,7 @@ ODIR=obj
 
 LIBS=-lpthread -lxbserial
 
-_OBJ = manager.o
+_OBJ = manager.o psq.o mr.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 

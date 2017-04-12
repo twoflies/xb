@@ -107,6 +107,9 @@ namespace XB {
       case TYPE_REMOTE_COMMAND_RESPONSE:
 	frame = new RemoteCommandResponseFrame(&header);
 	break;
+      case TYPE_IO_SAMPLE:
+	frame = new IOSampleFrame(&header);
+	break;
       default:
 	frame = new Frame(&header);
 	break;

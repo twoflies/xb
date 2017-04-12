@@ -40,6 +40,7 @@ namespace XB {
         
     length_ = (((unsigned short)length[0] << 8) & 0xFF00) | ((unsigned short)length[1] & 0x00FF);  
     if (length_ == 0) {
+      log("Length 0");
       return 0;
     }
     
