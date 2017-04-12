@@ -20,6 +20,7 @@ namespace XB {
   const byte TYPE_COMMAND_RESPONSE = ((byte)0x88);
   const byte TYPE_REMOTE_COMMAND = ((byte)0x17);
   const byte TYPE_REMOTE_COMMAND_RESPONSE = ((byte)0x97);
+  const byte TYPE_IO_SAMPLE = 0x92;
 
   class FrameHeader {
   public:
@@ -40,6 +41,8 @@ namespace XB {
 	return "RC ";
       case TYPE_REMOTE_COMMAND_RESPONSE:
 	return "RCR";
+      case TYPE_IO_SAMPLE:
+	return "IO ";
       default:
 	snprintf(buffer, 4, "%02X", type);
 	return buffer;

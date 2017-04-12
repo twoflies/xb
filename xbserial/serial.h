@@ -6,6 +6,7 @@
 
 #include "frame.h"
 #include "command.h"
+#include "iosample.h"
 
 namespace XB {
 

@@ -33,7 +33,7 @@ namespace XB {
   CommandFrame::~CommandFrame() {
   }
 
-  byte CommandFrame::getId() {
+  byte CommandFrame::getId() const {
     return id_;
   }
 
@@ -97,7 +97,7 @@ namespace XB {
     }
   }
 
-  byte CommandResponseFrame::getId() {
+  byte CommandResponseFrame::getId() const {
     return id_;
   }
 

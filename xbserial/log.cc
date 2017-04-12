@@ -17,7 +17,7 @@ namespace XB {
     char* message;
     int result = vasprintf(&message, format, args);
     if (result != -1) {
-      std::cout << message;
+      std::cout << message;// << std::flush;
       free(message);
     }
     return result;

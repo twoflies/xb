@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
     return logError(result, "Failed to open");
   }
 
-  Parameter parameter;
+  /*Parameter parameter;
   Module module(Address64(0x00, 0x13, 0xA2, 0x00, 0x41, 0x46, 0xB5, 0xA9), UNKNOWN, std::string());
   //result = serial.setParameter(Command("SP"), Parameter(0x5DC));
   //result = serial.setParameter(Command("SN"), Parameter(0x14));
@@ -45,7 +45,13 @@ int main(int argc, char **argv) {
   // [95 13-A2-00-41-46-B5-A9-A5-0F-42-A5-0F-00-13-A2-00-41-46-B5-A9-20-00-00-00-02-03-C1-05-10-1E]
 
   logData(parameter.data, parameter.length);
-  log("%d", parameter.ushort());
+  log("%d", parameter.ushort());*/
+
+  Frame* frame;
+  while (true) {
+    frame = serial.receiveAny();
+    delete frame;
+  }
     
   return serial.close();
 }

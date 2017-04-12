@@ -35,6 +35,10 @@ namespace XB {
     std::string std_string() {
       return std::string() + (char)a + (char)b;
     }
+
+    unsigned short ushort() {
+      return ntohs((unsigned short)a | ((unsigned short)b << 8));
+    }
   };
 
   typedef _2Byte Command;
@@ -79,7 +83,7 @@ namespace XB {
     CommandFrame(Command command, byte id = 0);
     CommandFrame(Command command, Parameter parameter, byte id = 0);
     virtual ~CommandFrame();
-    byte getId();
+    byte getId() const;
 
   protected:
     CommandFrame(byte type, Command command, byte id = 0);
@@ -100,7 +104,7 @@ namespace XB {
     CommandResponseFrame(byte type = TYPE_COMMAND_RESPONSE);
     CommandResponseFrame(FrameHeader* header);
     virtual ~CommandResponseFrame();
-    byte getId();
+    byte getId() const;
     Command getCommand();
     virtual byte getStatus();
     Parameter getParameter();

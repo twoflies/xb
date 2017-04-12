@@ -14,27 +14,69 @@
 namespace XB {
 
   Manager::Manager() {
-    monitorCallback_ = NULL;
-    
-    serial_.open("/dev/ttyUSB0", 9600);
-    
-    pthread_mutex_init(&monitorMutex_, NULL);
+    idSequence_ = 0;
   }
   
   Manager::~Manager() {
-    serial_.close();
-    
-    pthread_mutex_destroy(&monitorMutex_);
   }
 
-  int Manager::discoverModules(std::vector<Module*>& modules) {
-    Parameter parameter;
-    int result = serial_.getParameter(Command("NT"), &parameter);
+  int Manager::initialize() {
+    int result = serial_.open("/dev/ttyUSB0", 9600);
     if (result != 0) {
       return result;
     }
 
-    result = serial_.send(CommandFrame(Command("ND"), 0x01));
+    result = commandResponseRouter_.initialize();
+    if (result != 0) {
+      return result;
+    }
+
+    result = ioSampleQueue_.initialize();
+    if (result != 0) {
+      return result;
+    }
+
+    result = pthread_create(&monitorThread_, NULL, &Manager::monitor_, this);
+    if (result != 0) {
+      return result;
+    }
+
+    return 0;
+  }
+
+  int Manager::destroy() {
+    int result = pthread_cancel(monitorThread_);
+    if (result != 0) {
+      return result;
+    }
+
+    result = pthread_join(monitorThread_, NULL);
+    if (result != 0) {
+      return result;
+    }
+
+    result = commandResponseRouter_.destroy();
+    if (result != 0) {
+      return result;
+    }
+
+    result = ioSampleQueue_.destroy();
+    if (result != 0) {
+      return result;
+    }
+
+    return serial_.close();
+  }
+
+  int Manager::discoverModules(std::vector<Module*>& modules) {
+    Parameter parameter;
+    int result = getParameter(Command("NT"), &parameter);
+    if (result != 0) {
+      return result;
+    }
+
+    byte id = getNextId();
+    result = serial_.send(CommandFrame(Command("ND"), id));
     if (result != 0) {
       return result;
     }
@@ -44,11 +86,10 @@ namespace XB {
 
     short timeRemaining = parameter.ushort() * 100;
     while (timeRemaining > 0) {
-      Frame* response = serial_.receiveAny(timeRemaining);
-      CommandResponseFrame* commandResponse = dynamic_cast<CommandResponseFrame*>(response);
-      if (commandResponse != NULL) {
-	byte* data = commandResponse->getParameter().data;
-	int length = commandResponse->getParameter().length;
+      CommandResponseFrame* response = commandResponseRouter_.waitForMessage(id, timeRemaining);
+      if (response != NULL) {
+	byte* data = response->getParameter().data;
+	int length = response->getParameter().length;
 
 	if (length > (int)(sizeof(Address16) + sizeof(Address64))) {
 	  Module* module = new Module();
@@ -58,9 +99,10 @@ namespace XB {
 
 	  modules.push_back(module);
 	}
-      }
-      delete response;
 
+	delete response;
+      }
+     
       struct timespec current;
       clock_gettime(CLOCK_MONOTONIC, &current);
       unsigned long long diff = (1000000000 * (current.tv_sec - start.tv_sec) + current.tv_nsec - start.tv_nsec) / 1000000;
@@ -88,72 +130,114 @@ namespace XB {
     }
 
     for (std::vector<CommandParameter>::iterator it = configuration->commandParameters.begin(); it != configuration->commandParameters.end(); it++) {
-      result = serial_.setRemoteParameter(module, it->first, it->second);
+      result = setRemoteParameter(module, it->first, it->second);
       if (result != 0) {
 	return result;
       }
     }
 
     if (!configuration->commandParameters.empty()) {
-      serial_.setRemoteParameter(module, Command("AC"), Parameter());
-    }
-
-    return 0;
-  }
-
-  int Manager::setModuleIdentifier(Module* module, char* identifier) {
-    return serial_.setRemoteParameter(module, Command("NI"), Parameter(identifier));
-  }
-
-  int Manager::startMonitoring(MonitorCallback callback) {
-    if (callback == NULL) {
-      return -1;
-    }
-    
-    int result = pthread_mutex_lock(&monitorMutex_);
-    if (result != 0) {
-      return result;
-    }
-
-    int threadResult = -1;
-    if (monitorCallback_ == NULL) {
-      monitorCallback_ = callback;
-      threadResult = pthread_create(&monitorThread_, NULL, &Manager::monitor_, this);
-    }
-      
-    result = pthread_mutex_unlock(&monitorMutex_);
-    if (result != 0) {
-      return result;
-    }
-
-    return threadResult;
-  }
-
-  int Manager::stopMonitoring() {
-    int result = pthread_mutex_lock(&monitorMutex_);
-    if (result != 0) {
-      return result;
-    }
-
-    int threadResult = -1;
-    if (monitorCallback_ != NULL) {
-      monitorCallback_ = NULL;
-      threadResult = pthread_cancel(monitorThread_);
-    }
-    
-    result = pthread_mutex_unlock(&monitorMutex_);
-    if (result != 0) {
-      return result;
-    }
-
-    if (threadResult == 0) {
-      threadResult = pthread_join(monitorThread_, NULL);
-      if (threadResult == 0) {
-	log("Monitoring stopped.");
+      CommandResponseFrame* response = sendRemoteCommandForResponse(module, Command("AC"));
+      if (response == NULL) {
+	result = -1;
       }
     }
 
-    return threadResult;
+    return result;
+  }
+
+  int Manager::setModuleIdentifier(Module* module, char* identifier) {
+    return setRemoteParameter(module, Command("NI"), Parameter(identifier), OPTION_APPLY);
+  }
+
+  int Manager::subscribeIOSample(IOSampleFrameCallback callback) {
+    return ioSampleQueue_.subscribe(callback);
+  }
+
+  int Manager::unsubscribeIOSample(IOSampleFrameCallback callback) {
+    return ioSampleQueue_.unsubscribe(callback);
+  }
+
+  CommandResponseFrame* Manager::sendCommandForResponse(Command command, Parameter parameter) {
+    return sendCommandForResponse(CommandFrame(command, parameter, getNextId()));
+  }
+  
+  RemoteCommandResponseFrame* Manager::sendRemoteCommandForResponse(Module* module, Command command, Parameter parameter, byte options) {
+    CommandResponseFrame* response = sendCommandForResponse(RemoteCommandFrame(module->address64, module->address16, options, command, parameter, getNextId()));
+    RemoteCommandResponseFrame *remoteResponse = dynamic_cast<RemoteCommandResponseFrame*>(response);
+    if ((remoteResponse == NULL) && (response != NULL)) {
+      delete response;
+    }
+
+    return remoteResponse;
+  }
+  
+  int Manager::getParameter(Command command, Parameter* parameter) {
+    CommandResponseFrame* response = sendCommandForResponse(command);
+    if (response == NULL) {
+      return -1;
+    }
+
+    *parameter = response->detachParameter();
+    byte status = response->getStatus();
+
+    delete response;
+    return status;
+  }
+  
+  int Manager::getRemoteParameter(Module* module, Command command, Parameter* parameter) {
+    RemoteCommandResponseFrame* response = sendRemoteCommandForResponse(module, command);
+    if (response == NULL) {
+      return -1;
+    }
+
+    *parameter = response->detachParameter();
+    byte status = response->getStatus();
+
+    delete response;
+    return status;
+  }
+  
+  int Manager::setParameter(Command command, Parameter parameter) {
+    CommandResponseFrame* response = sendCommandForResponse(command, parameter);
+    if (response == NULL) {
+      return -1;
+    }
+
+    byte status = response->getStatus();
+
+    delete response;
+    return status;
+  }
+  
+  int Manager::setRemoteParameter(Module* module, Command command, Parameter parameter, byte options) {
+    RemoteCommandResponseFrame* response = sendRemoteCommandForResponse(module, command, parameter, options);
+    if (response == NULL) {
+      return -1;
+    }
+
+    byte status = response->getStatus();
+
+    delete response;
+    return status;
+  }
+  
+
+  byte Manager::getNextId() {
+    return ++idSequence_;
+  }
+
+  CommandResponseFrame* Manager::sendCommandForResponse(const CommandFrame& frame) {
+    if (frame.getId() == 0) {
+      return NULL;
+    }
+    
+    int result = serial_.send(frame);
+    if (result != 0) {
+      return NULL;
+    }
+
+    return commandResponseRouter_.waitForMessage(frame.getId());
   }
 
   void* Manager::monitor_(void *context) {
@@ -161,31 +245,27 @@ namespace XB {
   }
 
   void* Manager::monitor() {
-    MonitorCallback callback;
-
-    int result = pthread_mutex_lock(&monitorMutex_);
-    if (result != 0) {
-      return NULL;
-    }
-
-    callback = monitorCallback_;
-
-    result = pthread_mutex_unlock(&monitorMutex_);
-    if (result != 0) {
-      return NULL;
-    }
-
-    log("Monitoring...");
     do {
       Frame* response = serial_.receiveAny();
+
+      CommandResponseFrame* commandResponse = dynamic_cast<CommandResponseFrame*>(response);
+      if (commandResponse != NULL) {
+	commandResponseRouter_.route(commandResponse->getId(), commandResponse);
+	continue;
+      }
+
+      IOSampleFrame* ioSample = dynamic_cast<IOSampleFrame*>(response);
+      if (ioSample != NULL) {
+	ioSampleQueue_.enqueue(ioSample);
+	continue;
+      }
+      
       if (response != NULL) {
-	callback(response);
 	delete response;
       }
     } while(true);
     
     return NULL;
   }
-  
 }
 
