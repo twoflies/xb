@@ -16,13 +16,29 @@
 
 namespace XB {
 
-  typedef void (*IOSampleFrameCallback)(const IOSampleFrame* frame);
+  typedef PubSubQueueSubscriber<const IOSampleFrame*> IOSampleFrameSubscriber;
 
-  typedef std::pair<Command, Parameter> CommandParameter;
+  struct CommandParameter {
+    const Command command;
+    const Parameter parameter;
+
+  CommandParameter(const char* command, unsigned short parameter) : command(command), parameter(parameter) {
+    }
+  };
 
   struct ModuleConfiguration {
     std::string identifier;
-    std::vector<CommandParameter> commandParameters;
+    std::vector<CommandParameter*> commandParameters;
+
+    ~ModuleConfiguration() {
+      for (std::vector<CommandParameter*>::iterator it = commandParameters.begin(); it != commandParameters.end(); it++) {
+	delete *it;
+      }
+    }
+
+    void addCommandParameter(const char* command, unsigned short parameter) {
+      commandParameters.push_back(new CommandParameter(command, parameter));
+    }
   };
   
   class Manager {
@@ -33,9 +49,9 @@ namespace XB {
     int destroy();
     int discoverModules(std::vector<Module*>& modules);
     int configureModule(Module* module, ModuleConfiguration* configuration);
-    int setModuleIdentifier(Module* module, char* identifier);
-    int subscribeIOSample(IOSampleFrameCallback callback);
-    int unsubscribeIOSample(IOSampleFrameCallback callback);
+    int setModuleIdentifier(Module* module, const char* identifier);
+    int subscribeIOSample(IOSampleFrameSubscriber* subscriber);
+    int unsubscribeIOSample(IOSampleFrameSubscriber* subscriber);
 
   public:
     CommandResponseFrame* sendCommandForResponse(Command command, Parameter parameter = Parameter());

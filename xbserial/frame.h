@@ -14,7 +14,7 @@
 
 namespace XB {
 
-  const bool DEBUG_FRAMES = true;
+  const bool DEBUG_FRAMES = false;
 
   const byte TYPE_COMMAND = ((byte)0x08);
   const byte TYPE_COMMAND_RESPONSE = ((byte)0x88);
@@ -26,8 +26,8 @@ namespace XB {
   public:
     FrameHeader();
     int read(int fd, long timeout = 0);
-    unsigned short getLength();
-    byte getType();
+    unsigned short getLength() const;
+    byte getType() const;
 
   public:
     static std::string getTypeCode(byte type) {
@@ -68,13 +68,13 @@ namespace XB {
     Frame(byte type);
     Frame(FrameHeader* header);
     virtual ~Frame();
-    byte getType();
+    byte getType() const;
     int write(int fd);
     int read(int fd);
     int readFromHeader(int fd, FrameHeader* header);
 
   protected:
-    virtual byte getStatus();
+    virtual byte getStatus() const;
     int writeHeader(int fd);
     virtual unsigned short getPayloadPrologueLength();
     virtual unsigned short getPayloadLength();

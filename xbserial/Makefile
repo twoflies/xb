@@ -18,6 +18,8 @@ libxbserial: $(OBJ)
 test: $(ODIR)/test.o
 	$(CC) -o test $^ $(CFLAGS) $(LIBS) -lxbserial
 
+all: libxbserial test
+
 .PHONY: clean
 
 clean:

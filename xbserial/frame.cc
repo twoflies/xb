@@ -56,11 +56,11 @@ namespace XB {
     return 0;
   }
 
-  unsigned short FrameHeader::getLength() {
+  unsigned short FrameHeader::getLength() const {
     return length_;
   }
 
-  byte FrameHeader::getType() {
+  byte FrameHeader::getType() const {
     return type_;
   }
 
@@ -82,7 +82,7 @@ namespace XB {
   Frame::~Frame() {
   }
 
-  byte Frame::getType() {
+  byte Frame::getType() const {
     return type_;
   }
 
@@ -130,7 +130,7 @@ namespace XB {
     return readChecksum(fd);
   }
 
-  byte Frame::getStatus() {
+  byte Frame::getStatus() const {
     return STATUS_OK;
   }
 

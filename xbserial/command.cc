@@ -101,15 +101,15 @@ namespace XB {
     return id_;
   }
 
-  Command CommandResponseFrame::getCommand() {
+  Command CommandResponseFrame::getCommand() const {
     return command_;
   }
 
-  byte CommandResponseFrame::getStatus() {
+  byte CommandResponseFrame::getStatus() const {
     return status_;
   }
 
-  Parameter CommandResponseFrame::getParameter() {
+  Parameter CommandResponseFrame::getParameter() const {
     return parameter_;
   }
 
@@ -252,11 +252,11 @@ namespace XB {
   RemoteCommandResponseFrame::~RemoteCommandResponseFrame() {
   }
 
-  Address64 RemoteCommandResponseFrame::getAddress64() {
+  Address64 RemoteCommandResponseFrame::getAddress64() const {
     return address64_;
   }
 
-  Address16 RemoteCommandResponseFrame::getAddress16() {
+  Address16 RemoteCommandResponseFrame::getAddress16() const {
     return address16_;
   }
 

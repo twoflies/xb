@@ -4,6 +4,7 @@
 
 #include "manager.h"
 
+#include <sstream>
 #include <time.h>
 #include <stdio.h>
 #include <string.h>
@@ -113,24 +114,20 @@ namespace XB {
   }
 
   int Manager::configureModule(Module* module, ModuleConfiguration* configuration) {
-    char* identifier;
-    if (configuration->identifier.empty()) {
-      if (asprintf(&identifier, "Node %02X-%02X", module->address16.a, module->address16.b) < 0) {
-	return -1;
-      }
-    }
-    else {
-      identifier = strdup(configuration->identifier.c_str());
+    module->identifier = configuration->identifier;
+    if (module->identifier.empty()) {
+      std::ostringstream identifier("Node ");
+      identifier << std::hex << module->address16.a << "-" << module->address16.b;
+      module->identifier = identifier.str();
     }
 
-    int result = setModuleIdentifier(module, identifier);
-    free(identifier);
+    int result = setModuleIdentifier(module, module->identifier.c_str());
     if (result != 0) {
       return result;
     }
 
-    for (std::vector<CommandParameter>::iterator it = configuration->commandParameters.begin(); it != configuration->commandParameters.end(); it++) {
-      result = setRemoteParameter(module, it->first, it->second);
+    for (std::vector<CommandParameter*>::iterator it = configuration->commandParameters.begin(); it != configuration->commandParameters.end(); it++) {
+      result = setRemoteParameter(module, (*it)->command, (*it)->parameter);
       if (result != 0) {
 	return result;
       }
@@ -146,16 +143,16 @@ namespace XB {
     return result;
   }
 
-  int Manager::setModuleIdentifier(Module* module, char* identifier) {
+  int Manager::setModuleIdentifier(Module* module, const char* identifier) {
     return setRemoteParameter(module, Command("NI"), Parameter(identifier), OPTION_APPLY);
   }
 
-  int Manager::subscribeIOSample(IOSampleFrameCallback callback) {
-    return ioSampleQueue_.subscribe(callback);
+  int Manager::subscribeIOSample(IOSampleFrameSubscriber* subscriber) {
+    return ioSampleQueue_.subscribe(subscriber);
   }
 
-  int Manager::unsubscribeIOSample(IOSampleFrameCallback callback) {
-    return ioSampleQueue_.unsubscribe(callback);
+  int Manager::unsubscribeIOSample(IOSampleFrameSubscriber* subscriber) {
+    return ioSampleQueue_.unsubscribe(subscriber);
   }
 
   CommandResponseFrame* Manager::sendCommandForResponse(Command command, Parameter parameter) {
@@ -256,7 +253,7 @@ namespace XB {
 
       IOSampleFrame* ioSample = dynamic_cast<IOSampleFrame*>(response);
       if (ioSample != NULL) {
-	ioSampleQueue_.enqueue(ioSample);
+	ioSampleQueue_.publish(ioSample);
 	continue;
       }
       

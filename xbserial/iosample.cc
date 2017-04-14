@@ -19,36 +19,69 @@ namespace XB {
   IOSampleFrame::~IOSampleFrame() {
   }
 
-  Address64 IOSampleFrame::getAddress64() {
+  Address64 IOSampleFrame::getAddress64() const {
     return address64_;
   }
 
-  Address16 IOSampleFrame::getAddress16() {
+  Address16 IOSampleFrame::getAddress16() const {
     return address16_;
   }
 
-  byte IOSampleFrame::getReceiveOptions() {
+  byte IOSampleFrame::getReceiveOptions() const {
     return receiveOptions_;
   }
 
-  byte IOSampleFrame::getSampleCount() {
+  byte IOSampleFrame::getSampleCount() const {
     return sampleCount_;
   }
 
-  DigitalMask IOSampleFrame::getDigitalMask() {
+  DigitalMask IOSampleFrame::getDigitalMask() const {
     return digitalMask_;
   }
 
-  byte IOSampleFrame::getAnalogMask() {
+  byte IOSampleFrame::getAnalogMask() const {
     return analogMask_;
   }
 
-  Sample IOSampleFrame::getDigitalSample() {
+  Sample IOSampleFrame::getDigitalSample() const {
     return digitalSample_;
   }
 
-  std::vector<Sample> IOSampleFrame::getAnalogSamples() {
+  const std::vector<Sample>& IOSampleFrame::getAnalogSamples() const {
     return analogSamples_;
+  }
+
+  bool IOSampleFrame::isDigitalPinEnabled(PIN pin) const {
+    return ((digitalMask_.ushort() & pin) == pin);
+  }
+  
+  bool IOSampleFrame::isDigitalPinSet(PIN pin) const {
+    return isDigitalPinEnabled(pin) && ((digitalSample_.ushort() & pin) == pin);
+  }
+
+  bool IOSampleFrame::isAnalogPinEnabled(PIN pin) const {
+    return ((analogMask_ & pin) == pin);
+  }
+
+  Sample IOSampleFrame::getAnalogPinSample(PIN pin) const {
+    if (!isAnalogPinEnabled(pin)) {
+      return Sample();
+    }
+
+    int index = 0;
+    PIN mask = A0;
+    while (mask != pin) {
+      if (isAnalogPinEnabled(mask)) {
+	index++;
+      }
+      mask = (PIN)(((int)mask) << 1);
+    }
+    return analogSamples_.at(index);
+  }
+
+  unsigned short IOSampleFrame::getVoltage() const {
+    Sample sample = getAnalogPinSample(AV);
+    return (unsigned short)(sample.ushort() * VOLTAGE_SCALE);
   }
 
   int IOSampleFrame::readPayload(int fd, unsigned short length) {
@@ -87,18 +120,22 @@ namespace XB {
       return result;
     }
 
-    _log(" ");
-    _logData((byte*)&digitalMask_, sizeof(digitalMask_));
-
+    if (DEBUG_FRAMES) {
+      _log(" ");
+      _logData((byte*)&digitalMask_, sizeof(digitalMask_));
+    }
+    
     result = readAccumulate(fd, &analogMask_);
     if (result != 0) {
       return result;
     }
 
-    _log("/");
-    _logData(&analogMask_);
-
-    _log(" =");
+    if (DEBUG_FRAMES) {
+      _log("/");
+      _logData(&analogMask_);
+      _log(" =");
+    }
+    
     std::size_t digitalCount = std::bitset<16>(digitalMask_.ushort()).count();
     if (digitalCount > 0) {
       result = readAccumulate(fd, (byte*)&digitalSample_, sizeof(digitalSample_));
@@ -106,10 +143,15 @@ namespace XB {
 	return result;
       }
 
-      _logData((byte*)&digitalSample_, sizeof(digitalSample_));
+      if (DEBUG_FRAMES) {
+	_logData((byte*)&digitalSample_, sizeof(digitalSample_));
+      }
     }
 
-    _log("/");
+    if (DEBUG_FRAMES) {
+      _log("/");
+    }
+    
     std::size_t analogCount = std::bitset<8>(analogMask_).count();
     for (std::size_t index = 0; index < analogCount; index++) {
       Sample analogSample;
@@ -119,7 +161,9 @@ namespace XB {
       }
       analogSamples_.push_back(analogSample);
 
-      _logData((byte*)&analogSample, sizeof(analogSample));
+      if (DEBUG_FRAMES) {
+	_logData((byte*)&analogSample, sizeof(analogSample));
+      }
     }
 
     return 0;

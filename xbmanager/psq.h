@@ -33,17 +33,22 @@ namespace XB {
   };
 
   template<class T>
+    class PubSubQueueSubscriber {
+  public:
+    virtual ~PubSubQueueSubscriber() {}
+    virtual void received(T) = 0;
+  };
+
+  template<class T>
   class PubSubQueue {
   public:
-    typedef void (*PubSubQueueCallback)(T);
-    
     PubSubQueue(std::size_t maxSize = DEFAULT_MAX_SIZE, default_delete<T> _delete = default_delete<T>());
     ~PubSubQueue();
     int initialize();
     int destroy();
-    int enqueue(T value);
-    int subscribe(PubSubQueueCallback callback);
-    int unsubscribe(PubSubQueueCallback callback);
+    int publish(T value);
+    int subscribe(PubSubQueueSubscriber<T>* subscriber);
+    int unsubscribe(PubSubQueueSubscriber<T>* subscriber);
 
   private:
     static void* monitor_(void* context);
@@ -56,10 +61,10 @@ namespace XB {
     pthread_t queueThread_;
     pthread_mutex_t queueMutex_;
     pthread_cond_t queueCond_;
-    std::list<PubSubQueueCallback> callbacks_;
+    std::list<PubSubQueueSubscriber<T>*> subscribers_;
   };
 }
 
-#include "psq.t.cc"
+#include "psq.t.h"
 
 #endif // _PSQ_H_
