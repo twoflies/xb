@@ -65,7 +65,7 @@ namespace XB {
   }
 
   template<class T>
-  int PubSubQueue<T>::enqueue(T value) {
+  int PubSubQueue<T>::publish(T value) {
     int result = pthread_mutex_lock(&queueMutex_);
     if (result != 0) {
       return result;
@@ -79,25 +79,25 @@ namespace XB {
   }
 
   template<class T>
-  int PubSubQueue<T>::subscribe(PubSubQueueCallback callback) {
+  int PubSubQueue<T>::subscribe(PubSubQueueSubscriber<T>* subscriber) {
     int result = pthread_mutex_lock(&queueMutex_);
     if (result != 0) {
       return result;
     }
 
-    callbacks_.push_back(callback);
+    subscribers_.push_back(subscriber);
 
     return pthread_mutex_unlock(&queueMutex_);
   }
 
   template<class T>
-  int PubSubQueue<T>::unsubscribe(PubSubQueueCallback callback) {
+  int PubSubQueue<T>::unsubscribe(PubSubQueueSubscriber<T>* subscriber) {
     int result = pthread_mutex_lock(&queueMutex_);
     if (result != 0) {
       return result;
     }
 
-    callbacks_.remove(callback);
+    subscribers_.remove(subscriber);
 
     return pthread_mutex_unlock(&queueMutex_);
   }
@@ -122,7 +122,7 @@ namespace XB {
       }
 
       std::queue<T> queueCopy(queue_);
-      std::list<PubSubQueueCallback> callbacksCopy(callbacks_);
+      std::list<PubSubQueueSubscriber<T>*> subscribersCopy(subscribers_);
       while (!queue_.empty()) {
 	queue_.pop();
       }
@@ -134,8 +134,8 @@ namespace XB {
 
       while (!queueCopy.empty()) {
 	T current = queueCopy.front();
-	for (typename std::list<PubSubQueueCallback>::iterator it = callbacksCopy.begin(); it != callbacksCopy.end(); it++) {
-	  (*it)(current);
+	for (typename std::list<PubSubQueueSubscriber<T>*>::iterator it = subscribersCopy.begin(); it != subscribersCopy.end(); it++) {
+	  (*it)->received(current);
 	}
 	queueCopy.pop();
       }

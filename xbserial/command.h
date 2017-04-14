@@ -32,11 +32,11 @@ namespace XB {
       this->b = b;
     }
 
-    std::string std_string() {
+    std::string std_string() const {
       return std::string() + (char)a + (char)b;
     }
 
-    unsigned short ushort() {
+    unsigned short ushort() const {
       return ntohs((unsigned short)a | ((unsigned short)b << 8));
     }
   };
@@ -59,7 +59,7 @@ namespace XB {
       length = 2;
     }
 
-    Parameter(char* parameter) {
+    Parameter(const char* parameter) {
       data = (byte*)parameter;
       length = strlen(parameter);
     }
@@ -69,11 +69,11 @@ namespace XB {
       this->length = length;
     }
 
-    std::string std_string() {
+    std::string std_string() const {
       return std::string((char*)data, length);
     }
 
-    unsigned short ushort() {
+    unsigned short ushort() const {
       return ntohs((unsigned short)data[0] | ((unsigned short)data[1] << 8));
     }
   };
@@ -105,9 +105,9 @@ namespace XB {
     CommandResponseFrame(FrameHeader* header);
     virtual ~CommandResponseFrame();
     byte getId() const;
-    Command getCommand();
-    virtual byte getStatus();
-    Parameter getParameter();
+    Command getCommand() const;
+    virtual byte getStatus() const;
+    Parameter getParameter() const;
     Parameter detachParameter();
     
   protected:
@@ -217,8 +217,8 @@ namespace XB {
     RemoteCommandResponseFrame(byte type = TYPE_REMOTE_COMMAND_RESPONSE);
     RemoteCommandResponseFrame(FrameHeader *header);
     virtual ~RemoteCommandResponseFrame();
-    Address64 getAddress64();
-    Address16 getAddress16();
+    Address64 getAddress64() const;
+    Address16 getAddress16() const;
 
   protected:
     virtual int readPayload(int fd, unsigned short length);

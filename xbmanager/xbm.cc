@@ -33,11 +33,11 @@ int main (int argc, char** argv) {
   }
 
   ModuleConfiguration configuration;
-  configuration.commandParameters.push_back(std::make_pair(Command("V+"), Parameter(0xFFFF)));
-  configuration.commandParameters.push_back(std::make_pair(Command("IR"), Parameter(0x32)));
-  configuration.commandParameters.push_back(std::make_pair(Command("SP"), Parameter(0x5DC)));
-  configuration.commandParameters.push_back(std::make_pair(Command("SN"), Parameter(0x14)));
-  configuration.commandParameters.push_back(std::make_pair(Command("ST"), Parameter(0x32)));
+  configuration.addCommandParameter(Command("V+"), Parameter(0xFFFF));
+  configuration.addCommandParameter(Command("IR"), Parameter(0x32));
+  configuration.addCommandParameter(Command("SP"), Parameter(0xC8));
+  //configuration.addCommandParameter(Command("SN"), Parameter(0x14));
+  configuration.addCommandParameter(Command("ST"), Parameter(0x32));
 
   for (std::vector<Module*>::iterator it = modules.begin(); it != modules.end(); it++) {
     Module* module = *it;

@@ -27,6 +27,6 @@ namespace XB {
   };
 }
 
-#include "mr.t.cc"
+#include "mr.t.h"
 
 #endif // _MR_H_

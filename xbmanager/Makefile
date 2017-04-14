@@ -18,6 +18,8 @@ libxbmanager: $(OBJ)
 xbm: $(ODIR)/xbm.o
 	$(CC) -o xbm $^ $(CFLAGS) $(LIBS) -lxbmanager
 
+all: libxbmanager xbm
+
 .PHONY: clean
 
 clean:
