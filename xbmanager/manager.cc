@@ -96,7 +96,7 @@ namespace XB {
 	  Module* module = new Module();
 	  module->address16 = Address16(data);
 	  module->address64 = Address64(data + sizeof(module->address16));
-	  module->identifier = std::string((char*)(data + sizeof(module->address16) + sizeof(module->address64)));
+	  module->identifier = std::string(reinterpret_cast<const char*>(data + sizeof(module->address16) + sizeof(module->address64)));
 
 	  modules.push_back(module);
 	}
@@ -116,8 +116,8 @@ namespace XB {
   int Manager::configureModule(Module* module, ModuleConfiguration* configuration) {
     module->identifier = configuration->identifier;
     if (module->identifier.empty()) {
-      std::ostringstream identifier("Node ");
-      identifier << std::hex << module->address16.a << "-" << module->address16.b;
+      std::ostringstream identifier;
+      identifier << "Node " << std::hex << std::uppercase << (int)module->address16.a << "-" << (int)module->address16.b;
       module->identifier = identifier.str();
     }
 
