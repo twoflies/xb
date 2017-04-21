@@ -85,7 +85,7 @@ namespace XB {
     struct timespec start;
     clock_gettime(CLOCK_MONOTONIC, &start);
 
-    short timeRemaining = parameter.ushort() * 100;
+    short timeRemaining = (short)(parameter.ushort() * 100 * 1.2);  // + 20%
     while (timeRemaining > 0) {
       CommandResponseFrame* response = commandResponseRouter_.waitForMessage(id, timeRemaining);
       if (response != NULL) {

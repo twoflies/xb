@@ -158,6 +158,28 @@ namespace XB {
       g = data[6];
       h = data[7];
     }
+
+    void data(byte* data) const {
+      data[0] = a;
+      data[1] = b;
+      data[2] = c;
+      data[3] = d;
+      data[4] = e;
+      data[5] = f;
+      data[6] = g;
+      data[7] = h;
+    }
+    
+    friend bool operator <(const _8Byte& l, const _8Byte& r) {
+      return (l.a < r.a) ||
+	((l.a == r.a) && (l.b < r.b)) ||
+	((l.a == r.a) && (l.b == r.b) && (l.c < r.c)) ||
+	((l.a == r.a) && (l.b == r.b) && (l.c == r.c) && (l.d < r.d)) ||
+	((l.a == r.a) && (l.b == r.b) && (l.c == r.c) && (l.d == r.d) && (l.e < r.e)) ||
+	((l.a == r.a) && (l.b == r.b) && (l.c == r.c) && (l.d == r.d) && (l.e == r.e) && (l.f < r.f)) ||
+	((l.a == r.a) && (l.b == r.b) && (l.c == r.c) && (l.d == r.d) && (l.e == r.e) && (l.f == r.f) && (l.g < r.g)) ||
+	((l.a == r.a) && (l.b == r.b) && (l.c == r.c) && (l.d == r.d) && (l.e == r.e) && (l.f == r.f) && (l.g == r.g) && (l.h < r.h));
+    }
   };
 
   typedef _8Byte Address64;
